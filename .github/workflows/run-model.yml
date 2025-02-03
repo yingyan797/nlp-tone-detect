@@ -1,0 +1,11 @@
+name: "run-model"
+on:
+    workflow_dispatch:
+
+jobs:
+    # Placeholder, to be edited
+    hello:
+        runs-on: ubuntu-latest
+        steps:
+        - name: checkout current repository
+          uses: actions/checkout@v4
