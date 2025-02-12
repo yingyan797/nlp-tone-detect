@@ -1,4 +1,5 @@
 import pandas as pd
+import config
 
 def read_train_data():
   skip_rows = 0
