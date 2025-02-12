@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import csv
 
 import config
+import utils
 
-with open(config.train_data_path, 'r', newline='', encoding='utf-8') as train_file:
-    train_set_reader = csv.reader(train_file, delimiter='\t')
+train_data = utils.read_train_data()
 
 # Bar graph of label distribution
 
