@@ -183,17 +183,6 @@ def train_test_compare(train_data, test_data):
   plt.savefig("images/combined_keyword_distribution.png")
   plt.close()
 
-def visualize_embedding(data):
-  keywords = data["keyword"].unique()
-  from transformers import RobertaModel, RobertaTokenizer
-  import torch
-
-  model = RobertaModel.from_pretrained("roberta-base")
-  tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
-  for kw in keywords:
-    sentence = torch.tensor([tokenizer.encode(kw)])
-    print(kw, model.embeddings(sentence))
-
 if __name__ == "__main__":
   train_data = utils.read_train_data()
   test_data = utils.read_test_data()
@@ -215,4 +204,5 @@ if __name__ == "__main__":
       pass
 
   # train_test_compare(train_data, test_data)
-  visualize_embedding(train_data)
+  
+  # visualize_embedding(data["keyword"].unique())

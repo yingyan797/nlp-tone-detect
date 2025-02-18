@@ -38,3 +38,5 @@ def read_test_data():
   test_data = test_data[test_data['text'].notna()]
   
   return test_data
+
+print(read_train_data())
