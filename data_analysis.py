@@ -118,3 +118,81 @@ for section in sections:
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(f"images/label_by_keyword_{section}.png")
     plt.close()
+
+# Compare distribution of training and test sets
+train_data = utils.read_train_data()
+test_data = utils.read_test_data()
+
+# Pie chart of text length distribution for train and test sets
+bins = [0, 50, 100, 150, 200, 250, 300, np.inf]
+bin_labels = ["0-50", "50-100", "100-150", "150-200", "200-250", "250-300", "300+"]
+
+# Compute text lengths for both datasets
+train_data["text_length"] = train_data["text"].apply(len)
+test_data["text_length"] = test_data["text"].apply(len)
+
+# Bin the text lengths
+train_data["text_length_bin"] = pd.cut(train_data["text_length"], bins=bins, labels=bin_labels, right=False)
+test_data["text_length_bin"] = pd.cut(test_data["text_length"], bins=bins, labels=bin_labels, right=False)
+
+# Count occurrences in each bin
+train_tl_counts = train_data["text_length_bin"].value_counts().sort_index()
+test_tl_counts = test_data["text_length_bin"].value_counts().sort_index()
+
+# Plot pie charts for train and test sets
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+train_tl_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Train Set Text Length Distribution")
+plt.ylabel('')
+
+plt.subplot(1, 2, 2)
+test_tl_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Test Set Text Length Distribution")
+plt.ylabel('')
+
+plt.tight_layout()
+plt.savefig("images/combined_text_length_distribution.png")
+plt.close()
+
+# Pie chart of country code distribution for train and test sets
+train_country_counts = train_data["country_code"].value_counts().sort_index()
+test_country_counts = test_data["country_code"].value_counts().sort_index()
+
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+train_country_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Train Set Country Code Distribution")
+plt.ylabel('')
+
+plt.subplot(1, 2, 2)
+test_country_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Test Set Country Code Distribution")
+plt.ylabel('')
+
+plt.tight_layout()
+plt.savefig("images/combined_country_code_distribution.png")
+plt.close()
+
+
+# Pie chart of key word distribution for train and test sets
+train_keyword_counts = train_data["keyword"].value_counts().sort_index()
+test_keyword_counts = test_data["keyword"].value_counts().sort_index()
+
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+train_keyword_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Train Set Key Word Distribution")
+plt.ylabel('')
+
+plt.subplot(1, 2, 2)
+test_keyword_counts.plot.pie(autopct='%1.1f%%', startangle=90, counterclock=False, legend=False)
+plt.title("Test Set Key Word Distribution")
+plt.ylabel('')
+
+plt.tight_layout()
+plt.savefig("images/combined_keyword_distribution.png")
+plt.close()
