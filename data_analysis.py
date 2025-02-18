@@ -4,8 +4,6 @@ import pandas as pd
 import csv, math
 import config, utils
 
-sections = ["train", "test"]
-
 def draw_plot(title, xlabel, ylabel, path):
   plt.title(title)
   plt.xlabel(xlabel)
@@ -17,10 +15,9 @@ def draw_plot(title, xlabel, ylabel, path):
 def text_length(data, section):
    # Bar graph (histogram) of text length distribution
   plt.figure(figsize=(10, 6))
-  # Identify any rows in "text" column where the data is of float type
-  float_data = data[data["text"].apply(lambda x: isinstance(x, float))]
   data["text_length"] = data["text"].apply(len)
-  plt.hist(data["text_length"], bins=30, color="orange", edgecolor="black")
+  bins = [50 * i for i in range(60)]
+  plt.hist(data["text_length"], bins=bins, color="orange", edgecolor="black")
   draw_plot(f"{section.capitalize()} Set Text Length Distribution",
             "Text Length", "Frequency", f"images/text_length_distribution_{section}.png")
 
@@ -184,6 +181,7 @@ def train_test_compare(train_data, test_data):
   plt.close()
 
 if __name__ == "__main__":
+  sections = ["train", "test"]
   train_data = utils.read_train_data()
   test_data = utils.read_test_data()
 
