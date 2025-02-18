@@ -20,7 +20,21 @@ def read_train_data():
     delimiter='\t',
     skiprows=skip_rows,
     index_col=0,
-    names=config.data_col_headers
+    names=config.data_col_headers,
+    dtype=str
   )
+  train_data = train_data[train_data['text'].notna()]
   
   return train_data
+
+def read_test_data():
+  test_data = pd.read_csv(
+    config.test_data_path,
+    delimiter='\t',
+    index_col=0,
+    names=config.data_col_headers,
+    dtype=str
+  )
+  test_data = test_data[test_data['text'].notna()]
+  
+  return test_data
