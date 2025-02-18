@@ -14,19 +14,6 @@ for section in sections:
     data = utils.read_train_data()
   else:
     data = utils.read_test_data()
-  
-  # Bar graph of label distribution
-  plt.figure(figsize=(10, 6))
-  label_counts = data["label"].value_counts()
-  desired_order = ["0", "1", "2", "3", "4"]
-  label_counts = label_counts.reindex(desired_order)
-  plt.bar(label_counts.index, label_counts.values, color="skyblue")
-  plt.title(f"{section.capitalize()} Set Label Distribution")
-  plt.xlabel("Label")
-  plt.ylabel("Count")
-  plt.tight_layout()
-  plt.savefig(f"images/label_distribution_{section}.png")
-  plt.close()
 
   # Bar graph (histogram) of text length distribution
   plt.figure(figsize=(10, 6))
@@ -64,10 +51,24 @@ for section in sections:
   plt.close()
 
   if section == "train":
+    
+    # Bar graph of label distribution
+    plt.figure(figsize=(10, 6))
+    label_counts = data["label"].value_counts()
+    desired_order = ["0", "1", "2", "3", "4"]
+    label_counts = label_counts.reindex(desired_order)
+    plt.bar(label_counts.index, label_counts.values, color="skyblue")
+    plt.title(f"{section.capitalize()} Set Label Distribution")
+    plt.xlabel("Label")
+    plt.ylabel("Count")
+    plt.tight_layout()
+    plt.savefig(f"images/label_distribution_{section}.png")
+    plt.close()
+    
     # Grouped pie charts of label distribution by text length
     # Bin text lengths into ranges
-    bins = [0, 50, 100, 150, 200, 250, 300, np.inf]
-    bin_labels = ["0-50", "50-100", "100-150", "150-200", "200-250", "250-300", "300+"]
+    bins = [0, 100, 200, 300, 400, 500, 1000, np.inf]
+    bin_labels = ["0-100", "100-200", "200-300", "300-400", "400-500", "500-1000", "1000+"]
     data["text_length_bin"] = pd.cut(data["text_length"], bins=bins, labels=bin_labels, right=False)
     grouped_tl = data.groupby(["text_length_bin", "label"]).size().unstack(fill_value=0)
     num_bins = len(grouped_tl.index)
@@ -124,8 +125,8 @@ train_data = utils.read_train_data()
 test_data = utils.read_test_data()
 
 # Pie chart of text length distribution for train and test sets
-bins = [0, 50, 100, 150, 200, 250, 300, np.inf]
-bin_labels = ["0-50", "50-100", "100-150", "150-200", "200-250", "250-300", "300+"]
+bins = [0, 100, 200, 300, 400, 500, 1000, np.inf]
+bin_labels = ["0-100", "100-200", "200-300", "300-400", "400-500", "500-1000", "1000+"]
 
 # Compute text lengths for both datasets
 train_data["text_length"] = train_data["text"].apply(len)
