@@ -16,7 +16,7 @@ def text_length(data, section):
    # Bar graph (histogram) of text length distribution
   plt.figure(figsize=(10, 6))
   data["text_length"] = data["text"].apply(len)
-  bins = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 5000]
+  bins = [50 * i for i in range(60)]
   plt.hist(data["text_length"], bins=bins, color="orange", edgecolor="black")
   draw_plot(f"{section.capitalize()} Set Text Length Distribution",
             "Text Length", "Frequency", f"images/text_length_distribution_{section}.png")
