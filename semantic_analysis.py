@@ -1,5 +1,6 @@
 import sklearn.manifold
 from transformers import RobertaModel, RobertaTokenizer
+import simpletransformers.classification.classification_model
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,9 +20,9 @@ def sentence_embedding(sentence, aggregate=False):
         return embedding.reshape((-1, embedding.shape[-1]))
     return embedding.reshape(-1)
 
-def embedding_2d(data, lim=4):
+def embedding_3d(data, lim=4):
     n_remaining = [lim for label in [0,1,2,3,4]]
-    sample = [[], [], [], []]
+    sample = [[], [], []]
     for i, row in data.iterrows():
         if not(any(n_remaining)):
             break
@@ -32,20 +33,24 @@ def embedding_2d(data, lim=4):
         n_remaining[label] -= 1
         
         emb = sentence_embedding(sentence)
-        visual_2d = sklearn.manifold.TSNE(n_components=2, 
-                    perplexity=emb.shape[0]-1).fit_transform(emb.detach().numpy())
-        sample[0] += list(visual_2d[:, 0])
-        sample[1] += list(visual_2d[:, 1])
-        sample[2] += [label] * visual_2d.shape[0]
-        sample[3] += [i] * visual_2d.shape[0]
-    plt.title("2D embedding visualization")
-    scatter = plt.scatter(sample[0], sample[1], c=sample[2])
-    # plt.xscale("log")
-    # plt.yscale("log")
-    plt.xlim(-1, 1)
-    plt.ylim(-1, 1)
+        sample[0] += [feat for feat in emb]
+        sample[1] += [label] * emb.shape[0]
+        sample[2] += [i] * emb.shape[0]
+    
+    feat_mat = torch.stack(sample[0])
+    feat_mat -= feat_mat.mean(0)
+    U, S, V = torch.pca_lowrank(feat_mat)
+    feat_mat = torch.matmul(feat_mat, V[:, :3])
+    sample[0] = feat_mat.detach().numpy()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    plt.title("3D Embedding PCA Visual")
+    scatter = ax.scatter(sample[0][:, 0], sample[0][:, 1], sample[0][:, 2], c=sample[1], marker=",")
+ 
     plt.legend(*scatter.legend_elements())
-    plt.savefig("images/embedding_2d.png")
+    plt.savefig("images/embedding_3d.png")
 
 def embedding_heatmap(sentence):
     grouped_embedding = sentence_embedding(sentence)
@@ -67,4 +72,5 @@ if __name__ == "__main__":
     # embedding_heatmap(
     #     "The factors resulting in Mongolia's extremely cold in winters include the country's relatively high latitude, far inland location, and high average elavation"
     # )
-    embedding_2d(train_data)
+    embedding_3d(train_data)
+    
