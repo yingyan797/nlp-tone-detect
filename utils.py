@@ -43,14 +43,14 @@ def read_train_split():
   train_data = read_train_data()
   
   train_ids = pd.read_csv(
-    'dataset/practice_splits/train_semeval_parids-labels.csv',
+    config.train_split_path,
     header=None,
     usecols=[0],
     dtype=str
   )
   
   dev_ids = pd.read_csv(
-    'dataset/practice_splits/dev_semeval_parids-labels.csv',
+    config.dev_split_path,
     header=None,
     usecols=[0],
     dtype=str
