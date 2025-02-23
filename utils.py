@@ -39,4 +39,24 @@ def read_test_data():
   
   return test_data
 
-print(read_train_data())
+def read_train_split():
+  train_data = read_train_data()
+  
+  train_ids = pd.read_csv(
+    'dataset/practice_splits/train_semeval_parids-labels.csv',
+    header=None,
+    usecols=[0],
+    dtype=str
+  )
+  
+  dev_ids = pd.read_csv(
+    'dataset/practice_splits/dev_semeval_parids-labels.csv',
+    header=None,
+    usecols=[0],
+    dtype=str
+  )
+  
+  train_data = train_data[train_data.index.isin(train_ids[0])]
+  dev_data = train_data[train_data.index.isin(dev_ids[0])]
+  
+  return train_data, dev_data
