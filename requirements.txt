@@ -2,7 +2,9 @@ huggingface_hub
 torch
 torchvision
 torchaudio
+torch_geometric
 transformers
 simpletransformers
 matplotlib
 pandas
+scikit-learn
