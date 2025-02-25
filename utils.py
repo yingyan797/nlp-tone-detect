@@ -59,7 +59,4 @@ if __name__ == '__main__':
   # print(train.head())
   # print(dev.head())
   import torch
-  t = torch.eye(5)
-  mask = (t > 0)
-  a = torch.ones(5,5)
-  print(a.masked_select(mask))
+  print(torch.ones(3) * torch.ones(3))

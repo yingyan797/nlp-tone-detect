@@ -97,14 +97,15 @@ class TextClassificationDataset(Dataset):
 
 PARAMS = {
     "lr": 1e-3,
-    "batch_size": 256
+    "batch_size": 256,
+    "loss_weight": 5
 }
 
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=PARAMS['lr'])
     # criterion = nn.CrossEntropyLoss()
-    criterion = nn.BCELoss()
+    criterion = nn.BCELoss(reduction='none')
     
     best_val_f1 = 0.0
     with open("training_record.csv", "w") as f:
@@ -116,12 +117,14 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         for batch in train_loader:
             input_ids = batch['input_ids'].to(model.device)
             attention_mask = batch['attention_mask'].to(model.device)
-            labels = batch['label'].to(model.device)
+            labels = batch['label'].reshape(-1, 1).to(model.device)
             optimizer.zero_grad()
             
             outputs = model(input_ids, attention_mask)
-            loss = criterion(outputs, labels.reshape(-1, 1))
-            
+            orig_loss = criterion(outputs, labels)
+            weight = torch.ones(labels.shape, device=model.device) + (PARAMS["loss_weight"]-1)*labels
+
+            loss = torch.mean(weight * orig_loss)
             loss.backward()
             optimizer.step()
             
@@ -143,7 +146,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
                 labels = batch['label'].to(model.device)
                 
                 outputs = model(input_ids, attention_mask)
-                loss = criterion(outputs, labels.reshape(-1,1))
+                loss = torch.mean(criterion(outputs, labels.reshape(-1,1)))
                 
                 val_loss += loss.item()
                 
