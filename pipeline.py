@@ -1,4 +1,6 @@
 import torch, tqdm
+import numpy as np
+from PIL import Image
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
@@ -18,13 +20,13 @@ class RobertaGCN(nn.Module):
             
         # 2 layer Graph convolutional neural network
         self.gcn1 = GCNConv(embed_dim, hidden_dims[0])
+        self.bn1 = nn.BatchNorm1d(hidden_dims[0])
         self.gcn2 = GCNConv(hidden_dims[0], hidden_dims[1])
         
         # Classification head
         self.classifier = nn.Linear(hidden_dims[1], num_classes)
         self.to(device)
         self.device = device
-        
     def forward(self, input_ids, attention_mask):
         with torch.no_grad():
             outputs = self.roberta(input_ids=input_ids, attention_mask=attention_mask)
@@ -32,29 +34,25 @@ class RobertaGCN(nn.Module):
             
         batch_size = hidden_states.size(0)
         seq_len = hidden_states.size(1)
-        edge_indices = []
-        for src in range(seq_len):
-            for dst in range(seq_len):
-                # if attention[src, dst] > attention_threshold:
-                edge_indices.append([src, dst])
-        edge_index = torch.tensor(edge_indices, dtype=torch.long, device=model.device).t().contiguous()
-        # attention_threshold = 0.1  # Or use top-k attention values
         
         # Divide graph to batches; Use attention as adjacency matrix for each sample in batch
         all_outputs = []
+        attention_threshold = 0.1
         for i in range(batch_size):
             # Extract attention from last layer as adjacency matrix
             attention = torch.matmul(hidden_states[i], hidden_states[i].transpose(0, 1))
             attention = F.softmax(attention, dim=-1)
-            edge_weight = attention.reshape(-1)
-
+            valid = (attention > attention_threshold)
+            edge_indices = valid.nonzero().t()
+            edge_weights = attention.masked_select(valid)
             # Create edges for nodes with attention above threshold            
             # Apply GCN with the attention matrix as the adjacency matrix
             x = hidden_states[i]  # [seq_len, hidden_size]
-            x = self.gcn1(x, edge_index=edge_index, edge_weight=edge_weight)
+            x = self.gcn1(x, edge_index=edge_indices, edge_weight=edge_weights)
             x = F.relu(x)
             x = F.dropout(x, p=0.2, training=self.training)
-            x = self.gcn2(x, edge_index=edge_index, edge_weight=edge_weight)
+            # x = self.bn1(x)
+            x = self.gcn2(x, edge_index=edge_indices, edge_weight=edge_weights)
             
             # Global pooling
             node_mask = attention_mask[i].bool()
@@ -98,22 +96,22 @@ class TextClassificationDataset(Dataset):
         }
 
 PARAMS = {
-    "lr": 2e-5,
-    "batch_size": 128
+    "lr": 1e-3,
+    "batch_size": 256
 }
 
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
-    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=2e-5)
+    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=PARAMS['lr'])
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.BCELoss()
     
     best_val_f1 = 0.0
-    
+    with open("training_record.csv", "w") as f:
+        f.write("")
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
-        
         # for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Train]"):
         for batch in train_loader:
             input_ids = batch['input_ids'].to(model.device)
@@ -149,13 +147,24 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
                 
                 val_loss += loss.item()
                 
-                _, preds = torch.max(outputs, 1)
-                all_preds.extend(preds.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+                preds = (outputs >= 0.5).int()
+                all_preds.extend(preds.reshape(-1).cpu().numpy())
+                all_labels.extend(labels.to(dtype=int).cpu().numpy())
         
+        im_size = int(np.sqrt(len(all_preds)))+1
+        res_im = np.zeros((im_size, 2*im_size), dtype=bool)
+        for i in range(im_size):
+            for j in range(im_size):
+                loc = i*im_size+j
+                if loc >= len(all_preds):
+                    break
+                res_im[i,j] = all_preds[loc]
+                res_im[i,j+im_size] = all_labels[loc]
+        Image.fromarray(res_im).save(f"train_visual/{epoch+1}.png")
+
         avg_val_loss = val_loss / len(val_loader)
         val_acc = accuracy_score(all_labels, all_preds)
-        val_f1 = f1_score(all_labels, all_preds, average='binary' if len(set(all_labels)) == 2 else 'macro')
+        val_f1 = f1_score(all_labels, all_preds, average='binary')
         
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {avg_train_loss:.4f}")
@@ -192,12 +201,12 @@ if __name__ == "__main__":
 
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'])
+    val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
 
     # Initialize model
     model = RobertaGCN(num_classes=1).to(torch.device("cuda"))
 
     # Train model
-    trained_model = train_model(model, train_loader, val_loader)
+    trained_model = train_model(model, train_loader, val_loader, num_epochs=100)
 
     print("Training completed!")

@@ -2,7 +2,7 @@ import pandas as pd
 import config
 import numpy as np
 
-def _read_data(data_path, skip_header=True, merge_labels=False):
+def _read_data(data_path, skip_header=True, augment=False, merge_labels=False):
   with open(data_path, 'r') as f:
     data = []
     if skip_header:
@@ -20,7 +20,8 @@ def _read_data(data_path, skip_header=True, merge_labels=False):
       if label >= 2:
         if merge_labels:
           row[-1] = 1.0
-        data += 3 * [row]
+        duplication = 3 if augment else 1
+        data += duplication * [row]
       else:
         if merge_labels:
           row[-1] = 0.0
@@ -54,6 +55,11 @@ def read_train_split(merge_labels=True):
   return train_part, dev_part
 
 if __name__ == '__main__':
-  train, dev = read_train_split()
-  print(train.head())
-  print(dev.head())
+  # train, dev = read_train_split()
+  # print(train.head())
+  # print(dev.head())
+  import torch
+  t = torch.eye(5)
+  mask = (t > 0)
+  a = torch.ones(5,5)
+  print(a.masked_select(mask))
