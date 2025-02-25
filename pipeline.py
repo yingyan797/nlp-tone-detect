@@ -1,11 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
 from torch_geometric.nn import GCNConv
 from transformers import RobertaModel
-import numpy as np
-from tqdm import tqdm
 
 class RobertaGCN(nn.Module):
     def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=5):
@@ -58,7 +55,7 @@ class RobertaGCN(nn.Module):
         return logits
 
 # Create a simple dataset class
-class TextClassificationDataset(Dataset):
+class TextClassificationDataset(torch.utils.data.Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=128):
         self.texts = texts
         self.labels = labels
