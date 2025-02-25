@@ -51,7 +51,7 @@ class RobertaGCN(nn.Module):
             x = self.gcn1(x, edge_index=edge_indices, edge_weight=edge_weights)
             x = F.relu(x)
             x = F.dropout(x, p=0.2, training=self.training)
-            # x = self.bn1(x)
+            x = self.bn1(x)
             x = self.gcn2(x, edge_index=edge_indices, edge_weight=edge_weights)
             
             # Global pooling
@@ -95,12 +95,6 @@ class TextClassificationDataset(Dataset):
             'label': torch.tensor(label, dtype=torch.float)
         }
 
-PARAMS = {
-    "lr": 1e-3,
-    "batch_size": 256,
-    "loss_weight": 5
-}
-
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=PARAMS['lr'])
@@ -108,8 +102,9 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
     criterion = nn.BCELoss(reduction='none')
     
     best_val_f1 = 0.0
-    with open("training_record.csv", "w") as f:
-        f.write("Epoch,Train Loss,Val Loss,Acc,F1\n")
+    name = f"{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}"
+    with open("training_record.csv", "a") as f:
+        f.write(f"Epoch,Train Loss,Val Loss,Acc,F1,{name}\n")
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
@@ -129,7 +124,6 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
             optimizer.step()
             
             train_loss += loss.item()
-            print(f"Epoch {epoch+1} Batch loss {loss.item()}")
         
         avg_train_loss = train_loss / len(train_loader)
         
@@ -154,16 +148,16 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
                 all_preds.extend(preds.reshape(-1).cpu().numpy())
                 all_labels.extend(labels.to(dtype=int).cpu().numpy())
         
-        im_size = int(np.sqrt(len(all_preds)))+1
-        res_im = np.zeros((im_size, 2*im_size), dtype=bool)
-        for i in range(im_size):
-            for j in range(im_size):
-                loc = i*im_size+j
-                if loc >= len(all_preds):
-                    break
-                res_im[i,j] = all_preds[loc]
-                res_im[i,j+im_size] = all_labels[loc]
-        Image.fromarray(res_im).save(f"train_visual/{epoch+1}.png")
+        # im_size = int(np.sqrt(len(all_preds)))+1
+        # res_im = np.zeros((im_size, 2*im_size), dtype=bool)
+        # for i in range(im_size):
+        #     for j in range(im_size):
+        #         loc = i*im_size+j
+        #         if loc >= len(all_preds):
+        #             break
+        #         res_im[i,j] = all_preds[loc]
+        #         res_im[i,j+im_size] = all_labels[loc]
+        # Image.fromarray(res_im).save(f"train_visual/{epoch+1}.png")
 
         avg_val_loss = val_loss / len(val_loader)
         val_acc = accuracy_score(all_labels, all_preds)
@@ -178,7 +172,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             # Save the model
-            torch.save(model.state_dict(), 'best_roberta_gcn_model.pth')
+            torch.save(model.state_dict(), f'best_model_{name}.pth')
             print("Model saved!")
         
         print("-" * 50)
@@ -202,14 +196,25 @@ if __name__ == "__main__":
     train_dataset = TextClassificationDataset(texts_train, labels_train, tokenizer)
     val_dataset = TextClassificationDataset(texts_val, labels_val, tokenizer)
 
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
+    learning_rates = [1e-2, 5e-3, 1e-3, 5e-4]
+    loss_weights = [5, 3]
 
-    # Initialize model
-    model = RobertaGCN(num_classes=1).to(torch.device("cuda"))
+    with open("training_record.csv", "w") as f:
+        f.write("")
+    for lr, weight in zip(learning_rates, loss_weights):
+        PARAMS = {
+            "lr": lr,
+            "batch_size": 256,
+            "loss_weight": weight
+        }
+        # Create data loaders
+        train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
 
-    # Train model
-    trained_model = train_model(model, train_loader, val_loader, num_epochs=100)
+        # Initialize model
+        model = RobertaGCN(num_classes=1).to(torch.device("cuda"))
 
-    print("Training completed!")
+        # Train model
+        trained_model = train_model(model, train_loader, val_loader, num_epochs=15)
+
+        print("Training completed!")
