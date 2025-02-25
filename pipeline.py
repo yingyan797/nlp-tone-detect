@@ -66,7 +66,7 @@ class RobertaGCN(nn.Module):
         # Classification
         logits = self.classifier(stacked_outputs)
         
-        return logits
+        return F.sigmoid(logits)
 
 # Create a simple dataset class
 class TextClassificationDataset(Dataset):
@@ -94,7 +94,7 @@ class TextClassificationDataset(Dataset):
         return {
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': encoding['attention_mask'].squeeze(),
-            'label': torch.tensor(label, dtype=torch.long)
+            'label': torch.tensor(label, dtype=torch.float)
         }
 
 PARAMS = {
@@ -105,8 +105,8 @@ PARAMS = {
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=2e-5)
-    criterion = nn.CrossEntropyLoss()
-    # criterion = nn.BCELoss()
+    # criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss()
     
     best_val_f1 = 0.0
     
@@ -119,11 +119,10 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
             input_ids = batch['input_ids'].to(model.device)
             attention_mask = batch['attention_mask'].to(model.device)
             labels = batch['label'].to(model.device)
-            
             optimizer.zero_grad()
             
             outputs = model(input_ids, attention_mask)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels.reshape(-1, 1))
             
             loss.backward()
             optimizer.step()
@@ -186,7 +185,6 @@ if __name__ == "__main__":
     labels_train = train_data['label'].to_list()
     texts_val = dev_data['text'].to_list()
     labels_val = dev_data['label'].to_list()
-
 
     # Create datasets
     train_dataset = TextClassificationDataset(texts_train, labels_train, tokenizer)

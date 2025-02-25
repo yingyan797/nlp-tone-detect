@@ -15,15 +15,15 @@ def _read_data(data_path, skip_header=True, merge_labels=False):
       if not line:
         break
       row = line.strip().split("\t")
-      label = int(row[-1])
+      label = float(row[-1])
       row[-1] = label
       if label >= 2:
         if merge_labels:
-          row[-1] = 1
+          row[-1] = 1.0
         data += 3 * [row]
       else:
         if merge_labels:
-          row[-1] = 0
+          row[-1] = 0.0
         data.append(row)
   data = pd.DataFrame(data, columns=config.data_col_headers)
   return data[data['text'].notna()]
