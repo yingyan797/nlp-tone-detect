@@ -34,8 +34,8 @@ def read_train_data(merge_labels=False):
 def read_test_data(merge_labels):
   return _read_data(config.test_data_path, False, merge_labels)
 
-def read_train_split():
-  train_data = read_train_data()  
+def read_train_split(merge_labels=True):
+  train_data = read_train_data(merge_labels=merge_labels)  
   train_ids = pd.read_csv(
     config.train_split_path,
     usecols=[0],

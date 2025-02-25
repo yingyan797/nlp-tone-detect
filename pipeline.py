@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from utils import read_train_split
 
 class RobertaGCN(nn.Module):
-    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=5, device=torch.device('cuda')):
+    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=1, device=torch.device('cuda')):
         super(RobertaGCN, self).__init__()
         # Load pre-trained RoBERTa model
         self.roberta = RobertaModel.from_pretrained('roberta-base')
@@ -32,6 +32,13 @@ class RobertaGCN(nn.Module):
             
         batch_size = hidden_states.size(0)
         seq_len = hidden_states.size(1)
+        edge_indices = []
+        for src in range(seq_len):
+            for dst in range(seq_len):
+                # if attention[src, dst] > attention_threshold:
+                edge_indices.append([src, dst])
+        edge_index = torch.tensor(edge_indices, dtype=torch.long, device=model.device).t().contiguous()
+        # attention_threshold = 0.1  # Or use top-k attention values
         
         # Divide graph to batches; Use attention as adjacency matrix for each sample in batch
         all_outputs = []
@@ -39,13 +46,15 @@ class RobertaGCN(nn.Module):
             # Extract attention from last layer as adjacency matrix
             attention = torch.matmul(hidden_states[i], hidden_states[i].transpose(0, 1))
             attention = F.softmax(attention, dim=-1)
-            
+            edge_weight = attention.reshape(-1)
+
+            # Create edges for nodes with attention above threshold            
             # Apply GCN with the attention matrix as the adjacency matrix
             x = hidden_states[i]  # [seq_len, hidden_size]
-            x = self.gcn1(x, edge_index=attention)
+            x = self.gcn1(x, edge_index=edge_index, edge_weight=edge_weight)
             x = F.relu(x)
             x = F.dropout(x, p=0.2, training=self.training)
-            x = self.gcn2(x, edge_index=attention)
+            x = self.gcn2(x, edge_index=edge_index, edge_weight=edge_weight)
             
             # Global pooling
             node_mask = attention_mask[i].bool()
@@ -90,13 +99,14 @@ class TextClassificationDataset(Dataset):
 
 PARAMS = {
     "lr": 2e-5,
-    "batch_size": 64
+    "batch_size": 128
 }
 
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=2e-5)
     criterion = nn.CrossEntropyLoss()
+    # criterion = nn.BCELoss()
     
     best_val_f1 = 0.0
     
@@ -104,7 +114,6 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         model.train()
         train_loss = 0.0
         
-        print("Epoch", epoch)
         # for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Train]"):
         for batch in train_loader:
             input_ids = batch['input_ids'].to(model.device)
@@ -120,6 +129,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
             optimizer.step()
             
             train_loss += loss.item()
+            print(f"Epoch {epoch+1} Batch loss {loss.item()}")
         
         avg_train_loss = train_loss / len(train_loader)
         
@@ -130,7 +140,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         all_labels = []
         
         with torch.no_grad():
-            for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]"):
+            for batch in val_loader:
                 input_ids = batch['input_ids'].to(model.device)
                 attention_mask = batch['attention_mask'].to(model.device)
                 labels = batch['label'].to(model.device)
@@ -151,6 +161,8 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {avg_train_loss:.4f}")
         print(f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val F1: {val_f1:.4f}")
+        with open("training_record.csv", "a") as f:
+            f.write(f"{epoch+1},{avg_train_loss:.4f},{avg_val_loss:.4f},{val_acc:.4f},{val_f1:.4f}\n")
         
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
@@ -185,7 +197,7 @@ if __name__ == "__main__":
     val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'])
 
     # Initialize model
-    model = RobertaGCN(num_classes=5).to(torch.device("cuda"))
+    model = RobertaGCN(num_classes=1).to(torch.device("cuda"))
 
     # Train model
     trained_model = train_model(model, train_loader, val_loader)
