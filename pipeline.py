@@ -108,7 +108,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
     
     best_val_f1 = 0.0
     with open("training_record.csv", "w") as f:
-        f.write("")
+        f.write("Epoch,Train Loss,Val Loss,Acc,F1\n")
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
