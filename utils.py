@@ -19,9 +19,8 @@ def read_train_data():
     config.train_data_path,
     delimiter='\t',
     skiprows=skip_rows,
-    index_col=0,
     names=config.data_col_headers,
-    dtype=str
+    dtype=config.data_col_dtypes
   )
   train_data = train_data[train_data['text'].notna()]
   
@@ -31,32 +30,43 @@ def read_test_data():
   test_data = pd.read_csv(
     config.test_data_path,
     delimiter='\t',
-    index_col=0,
-    names=config.data_col_headers,
-    dtype=str
+    names=config.data_col_headers[:-1],
+    dtype=config.data_col_dtypes
   )
   test_data = test_data[test_data['text'].notna()]
   
   return test_data
 
 def read_train_split():
-  train_data = read_train_data()
+  train_data = train_data_preprocessing(read_train_data())
   
   train_ids = pd.read_csv(
     config.train_split_path,
-    header=None,
     usecols=[0],
     dtype=str
   )
   
   dev_ids = pd.read_csv(
     config.dev_split_path,
-    header=None,
     usecols=[0],
     dtype=str
   )
   
-  train_data = train_data[train_data.index.isin(train_ids[0])]
-  dev_data = train_data[train_data.index.isin(dev_ids[0])]
+  train_part = train_data[train_data['par_id'].isin(train_ids['par_id'])]
+  dev_part = train_data[train_data['par_id'].isin(dev_ids['par_id'])]
   
-  return train_data, dev_data
+  return train_part, dev_part
+
+def train_data_preprocessing(train_data):
+  train_data.rename(columns={'label': 'orig_label'}, inplace=True)
+  train_data['label'] = train_data['orig_label'].apply(lambda x: 1 if x > 1 else 0)
+  
+  selected_columns = ['par_id', 'text', 'label']
+  train_data = train_data[selected_columns]
+  
+  return train_data
+
+if __name__ == '__main__':
+  train, dev = read_train_split()
+  print(train.head())
+  print(dev.head())
