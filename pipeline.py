@@ -1,11 +1,14 @@
-import torch
+import torch, tqdm
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
-from transformers import RobertaModel
+from transformers import RobertaModel, RobertaTokenizer
+from torch.utils.data import DataLoader, Dataset
+from sklearn.metrics import accuracy_score, f1_score
+from utils import read_train_split
 
 class RobertaGCN(nn.Module):
-    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=5):
+    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=5, device=torch.device('cuda')):
         super(RobertaGCN, self).__init__()
         # Load pre-trained RoBERTa model
         self.roberta = RobertaModel.from_pretrained('roberta-base')
@@ -19,6 +22,8 @@ class RobertaGCN(nn.Module):
         
         # Classification head
         self.classifier = nn.Linear(hidden_dims[1], num_classes)
+        self.to(device)
+        self.device = device
         
     def forward(self, input_ids, attention_mask):
         with torch.no_grad():
@@ -55,7 +60,7 @@ class RobertaGCN(nn.Module):
         return logits
 
 # Create a simple dataset class
-class TextClassificationDataset(torch.utils.data.Dataset):
+class TextClassificationDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=128):
         self.texts = texts
         self.labels = labels
@@ -82,3 +87,107 @@ class TextClassificationDataset(torch.utils.data.Dataset):
             'attention_mask': encoding['attention_mask'].squeeze(),
             'label': torch.tensor(label, dtype=torch.long)
         }
+
+PARAMS = {
+    "lr": 2e-5,
+    "batch_size": 64
+}
+
+# Training function
+def train_model(model, train_loader, val_loader, num_epochs=5):
+    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=2e-5)
+    criterion = nn.CrossEntropyLoss()
+    
+    best_val_f1 = 0.0
+    
+    for epoch in range(num_epochs):
+        model.train()
+        train_loss = 0.0
+        
+        print("Epoch", epoch)
+        # for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Train]"):
+        for batch in train_loader:
+            input_ids = batch['input_ids'].to(model.device)
+            attention_mask = batch['attention_mask'].to(model.device)
+            labels = batch['label'].to(model.device)
+            
+            optimizer.zero_grad()
+            
+            outputs = model(input_ids, attention_mask)
+            loss = criterion(outputs, labels)
+            
+            loss.backward()
+            optimizer.step()
+            
+            train_loss += loss.item()
+        
+        avg_train_loss = train_loss / len(train_loader)
+        
+        # Validation
+        model.eval()
+        val_loss = 0.0
+        all_preds = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]"):
+                input_ids = batch['input_ids'].to(model.device)
+                attention_mask = batch['attention_mask'].to(model.device)
+                labels = batch['label'].to(model.device)
+                
+                outputs = model(input_ids, attention_mask)
+                loss = criterion(outputs, labels)
+                
+                val_loss += loss.item()
+                
+                _, preds = torch.max(outputs, 1)
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+        
+        avg_val_loss = val_loss / len(val_loader)
+        val_acc = accuracy_score(all_labels, all_preds)
+        val_f1 = f1_score(all_labels, all_preds, average='binary' if len(set(all_labels)) == 2 else 'macro')
+        
+        print(f"Epoch {epoch+1}/{num_epochs}")
+        print(f"Train Loss: {avg_train_loss:.4f}")
+        print(f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.4f}, Val F1: {val_f1:.4f}")
+        
+        if val_f1 > best_val_f1:
+            best_val_f1 = val_f1
+            # Save the model
+            torch.save(model.state_dict(), 'best_roberta_gcn_model.pth')
+            print("Model saved!")
+        
+        print("-" * 50)
+    
+    return model
+
+if __name__ == "__main__":
+    # Load tokenizer
+    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+
+    # Load your data
+    # This is a placeholder - replace with your actual data loading code
+
+    train_data, dev_data = read_train_split()
+    texts_train = train_data['text'].to_list()
+    labels_train = train_data['label'].to_list()
+    texts_val = dev_data['text'].to_list()
+    labels_val = dev_data['label'].to_list()
+
+
+    # Create datasets
+    train_dataset = TextClassificationDataset(texts_train, labels_train, tokenizer)
+    val_dataset = TextClassificationDataset(texts_val, labels_val, tokenizer)
+
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'])
+
+    # Initialize model
+    model = RobertaGCN(num_classes=5).to(torch.device("cuda"))
+
+    # Train model
+    trained_model = train_model(model, train_loader, val_loader)
+
+    print("Training completed!")
