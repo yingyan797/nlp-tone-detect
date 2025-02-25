@@ -145,7 +145,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
                 labels = batch['label'].to(model.device)
                 
                 outputs = model(input_ids, attention_mask)
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels.reshape(-1,1))
                 
                 val_loss += loss.item()
                 
