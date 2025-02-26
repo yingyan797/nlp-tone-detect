@@ -21,7 +21,7 @@ class RobertaGCN(nn.Module):
             
         # 2 layer Graph convolutional neural network
         self.gcn1 = GCNConv(embed_dim, hidden_dims[0])
-        self.bn1 = nn.BatchNorm1d(hidden_dims[0])
+        self.bn1 = nn.BatchNorm1d(hidden_dims[0]) if PARAMS["batch_norm"] else nn.Identity()
         self.gcn2 = GCNConv(hidden_dims[0], hidden_dims[1])
         
         # Classification head
@@ -103,7 +103,7 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
     criterion = nn.BCELoss(reduction='none')
     
     best_val_f1 = 0.0
-    name = f"{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}"
+    name = f"{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}_norm{PARAMS['batch_norm']}"
     with open("training_record.csv", "a") as f:
         f.write(f"Epoch,Train Loss,Val Loss,Acc,F1,{name}\n")
     for epoch in range(num_epochs):
@@ -199,14 +199,16 @@ if __name__ == "__main__":
 
     learning_rates = [1e-2, 5e-3, 1e-3, 5e-4]
     loss_weights = [5, 3]
+    batch_norm = [True, False]
 
     with open("training_record.csv", "w") as f:
         f.write("")
-    for lr, weight in itertools.product(learning_rates, loss_weights):
+    for lr, weight, bn in itertools.product(learning_rates, loss_weights, batch_norm):
         PARAMS = {
             "lr": lr,
             "batch_size": 256,
-            "loss_weight": weight
+            "loss_weight": weight,
+            "batch_norm": bn
         }
         # Create data loaders
         train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
