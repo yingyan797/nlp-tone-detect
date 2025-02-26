@@ -8,6 +8,7 @@ from transformers import RobertaModel, RobertaTokenizer
 from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import accuracy_score, f1_score
 from utils import read_train_split
+import itertools
 
 class RobertaGCN(nn.Module):
     def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=1, device=torch.device('cuda')):
@@ -201,7 +202,7 @@ if __name__ == "__main__":
 
     with open("training_record.csv", "w") as f:
         f.write("")
-    for lr, weight in zip(learning_rates, loss_weights):
+    for lr, weight in itertools.product(learning_rates, loss_weights):
         PARAMS = {
             "lr": lr,
             "batch_size": 256,
