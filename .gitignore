@@ -2,3 +2,5 @@
 *venv*
 *.pth
 *.out
+**/tests
+.DS_Store
