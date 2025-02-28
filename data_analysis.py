@@ -179,28 +179,60 @@ def train_test_compare(train_data, test_data):
   plt.tight_layout()
   plt.savefig("images/combined_keyword_distribution.png")
   plt.close()
+  
+def distribution_of_text_length_by_label(data, section="train"):
+  # Bar graph of text length distribution by label
+  plt.figure(figsize=(10, 6))
+  data["text_length"] = data["text"].apply(len)
+  data["label"] = data["label"].astype(int).astype(str)
+  bins = np.linspace(0, data["text_length"].max(), 50)
+  
+  for label in ["0", "1", "2", "3", "4"]:
+    label_data = data[data["label"] == label]
+    plt.hist(label_data["text_length"], bins=bins, alpha=0.5, label=f"Label {label}")
+  plt.legend()
+  plt.title(f"Text Length Distribution by Label on {section.capitalize()} Set")
+  plt.xlabel("Text Length")
+  plt.ylabel("Frequency")
+  plt.tight_layout()
+  plt.savefig(f"images/text_length_by_label_{section}.png")
+  plt.close()
+
+def average_text_length_per_label(data, section):
+  # Bar graph of average text length per label
+  plt.figure(figsize=(10, 6))
+  data["text_length"] = data["text"].apply(len)
+  data["label"] = data["label"].astype(int).astype(str)
+  avg_text_length = data.groupby("label")["text_length"].mean()
+  plt.bar(avg_text_length.index, avg_text_length.values, color="orange")
+  plt.title(f"Average Text Length per Label on {section.capitalize()} Set")
+  plt.xlabel("Label")
+  plt.ylabel("Average Text Length")
+  plt.tight_layout()
+  plt.savefig(f"images/average_text_length_per_label_{section}.png")
+  plt.close()
+  
 
 if __name__ == "__main__":
   sections = ["train", "test"]
-  train_data = utils.read_train_data()
-  test_data = utils.read_test_data()
 
-  for section in sections:
-    if section == "train":
-      data = train_data
-    else:
-      data = test_data
+  # for section in sections:
+  #   if section == "train":
+  #     data = utils.read_train_data(merge_labels=False)
+  #     # label_distribution(data, section)
+  #     # grouped_distribution(data)
+  #   else:
+  #     data = utils.read_test_data(merge_labels=False)
 
-    # text_length(data, section)
-    # country_code(data, section)
-    # keyword_distribution(data, section)
+  #   # text_length(data, section)
+  #   # country_code(data, section)
+  #   # keyword_distribution(data, section)
 
-    if section == "train":
-      # label_distribution(data, section)
+  # # train_test_compare(train_data, test_data)
+  # # visualize_embedding(data["keyword"].unique())
 
-      # grouped_distribution(data)
-      pass
-
-  # train_test_compare(train_data, test_data)
-  
-  # visualize_embedding(data["keyword"].unique())
+  train_data, dev_data = utils.read_train_split(merge_labels=False)
+  distribution_of_text_length_by_label(train_data, "train")
+  distribution_of_text_length_by_label(dev_data, "test")
+  average_text_length_per_label(train_data, "train")
+  average_text_length_per_label(dev_data, "test")
