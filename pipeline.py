@@ -176,6 +176,9 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
             torch.save(model.state_dict(), f'best_model_{name}.pth')
             print("Model saved!")
         
+        if val_f1 > 0.545:
+            break
+        
         print("-" * 50)
     
     return model
@@ -197,9 +200,9 @@ if __name__ == "__main__":
     train_dataset = TextClassificationDataset(texts_train, labels_train, tokenizer)
     val_dataset = TextClassificationDataset(texts_val, labels_val, tokenizer)
 
-    learning_rates = [1e-2, 5e-3, 1e-3, 5e-4]
-    loss_weights = [5, 3]
-    batch_norm = [True, False]
+    learning_rates = [1e-2]
+    loss_weights = [3]
+    batch_norm = [False]
 
     with open("training_record.csv", "w") as f:
         f.write("")
