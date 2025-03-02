@@ -2,7 +2,7 @@ import pandas as pd
 import config
 import numpy as np
 
-def _read_data(data_path, skip_header=True, augment=False, merge_labels=False):
+def _read_data(data_path, skip_header=True, merge_labels=False):
   with open(data_path, 'r') as f:
     data = []
     if skip_header:
@@ -20,8 +20,7 @@ def _read_data(data_path, skip_header=True, augment=False, merge_labels=False):
       if label >= 2:
         if merge_labels:
           row[-1] = 1.0
-        duplication = 3 if augment else 1
-        data += duplication * [row]
+        data.append(row)
       else:
         if merge_labels:
           row[-1] = 0.0
