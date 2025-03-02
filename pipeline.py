@@ -80,7 +80,7 @@ class TextClassificationDataset(Dataset):
     
     def __getitem__(self, idx):
         text = self.texts[idx]
-        label = self.labels[idx]
+        label = self.labels[idx] if self.labels is not None else None
         
         encoding = self.tokenizer(
             text,
@@ -93,7 +93,7 @@ class TextClassificationDataset(Dataset):
         return {
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': encoding['attention_mask'].squeeze(),
-            'label': torch.tensor(label, dtype=torch.float)
+            'label': torch.tensor(label, dtype=torch.float) if label is not None else None
         }
 
 # Training function
