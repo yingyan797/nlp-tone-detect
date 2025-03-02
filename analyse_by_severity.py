@@ -169,71 +169,71 @@ import numpy as np
 def plot_severity_levels():
     # Severity levels and corresponding F1 Scores
     severity_levels = [0, 1, 2, 3, 4]
-    f1_scores = [0.0000, 0.0000, 0.7257, 0.8211, 0.8732]
+    accuracy_scores = [0.9706848030018762, 0.8183738120380147, 0.5694444444444444, 0.6965065502183406, 0.7749360613810742]
 
     # Plotting the bar chart
     plt.figure(figsize=(8, 5))
-    plt.bar(severity_levels, f1_scores, tick_label=severity_levels)
+    plt.bar(severity_levels, accuracy_scores, tick_label=severity_levels)
 
     # Labels and title
     plt.xlabel("Severity Level of Patronising Content")
-    plt.ylabel("F1 Score")
-    plt.title("F1 Score over Severity Levels of Patronising Content")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy over Severity Levels of Patronising Content")
 
     # Show values on top of bars
-    for i, v in enumerate(f1_scores):
+    for i, v in enumerate(accuracy_scores):
         plt.text(severity_levels[i], v + 0.02, str(round(v, 4)), ha='center', fontsize=10)
 
     # Show the plot
     plt.ylim(0, 1.1)  # Set y-axis limit for clarity
-    plt.savefig("./performance_analysis/severity/f1_scores_by_severity.png")
+    plt.savefig("./performance_analysis/severity/accuracy_scores_by_severity.png")
     plt.show()
 
 
 if __name__ == "__main__":
-    # plot_severity_levels()
+    plot_severity_levels()
 
-    # Load tokenizer
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+    # # Load tokenizer
+    # tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
          
-    # train_data, dev_data = read_train_split(dev_split_path=f"./category/{category}_data.tsv")
-    # # texts_train = train_data['text'].to_list()
-    # # labels_train = train_data['label'].to_list()
-    # texts_val = dev_data['text'].to_list()
-    # labels_val = dev_data['label'].to_list()
+    # # train_data, dev_data = read_train_split(dev_split_path=f"./category/{category}_data.tsv")
+    # # # texts_train = train_data['text'].to_list()
+    # # # labels_train = train_data['label'].to_list()
+    # # texts_val = dev_data['text'].to_list()
+    # # labels_val = dev_data['label'].to_list()
     
-    df = pd.read_csv(config.train_data_path, sep='\t', encoding='utf-8', skiprows=3)
-    # Rename columns for clarity
-    df.columns = ["index", "par_id", "category", "region", "text", "label"]
+    # df = pd.read_csv(config.train_data_path, sep='\t', encoding='utf-8', skiprows=3)
+    # # Rename columns for clarity
+    # df.columns = ["index", "par_id", "category", "region", "text", "label"]
     
-    # labels_val = [0.0 if label < 2 else 1.0 for label in labels_val]
+    # # labels_val = [0.0 if label < 2 else 1.0 for label in labels_val]
 
-    labels = df["label"].unique()
-    print(df["label"].value_counts())
+    # labels = df["label"].unique()
+    # print(df["label"].value_counts())
     
-    save_path="./performance_analysis/severity/severity_evaluation.json"
-    with open(save_path, "w") as f:
-        f.write("")
+    # save_path="./performance_analysis/severity/severity_evaluation.json"
+    # with open(save_path, "w") as f:
+    #     f.write("")
     
-    for label in labels:
-        df_category = df[df["label"] == label]
-        texts_val = df_category['text'].fillna("").astype(str).to_list()
-        # labels_val = df_category['label'].to_list()
-        # labels_val = [0.0 if label < 2 else 1.0 for label in labels_val]
-        labels_val = [0.0 if int(label) < 2 else 1.0] * len(texts_val)
+    # for label in labels:
+    #     df_category = df[df["label"] == label]
+    #     texts_val = df_category['text'].fillna("").astype(str).to_list()
+    #     # labels_val = df_category['label'].to_list()
+    #     # labels_val = [0.0 if label < 2 else 1.0 for label in labels_val]
+    #     labels_val = [0.0 if int(label) < 2 else 1.0] * len(texts_val)
 
         
-        val_dataset = TextClassificationDataset(texts_val, labels_val, tokenizer)
-        val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'])
+    #     val_dataset = TextClassificationDataset(texts_val, labels_val, tokenizer)
+    #     val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'])
         
-        # Load best model
-        model_path = f"best_model_{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}_norm{PARAMS['batch_norm']}.pth"
-        model = load_model(model_path, device)
+    #     # Load best model
+    #     model_path = f"best_model_{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}_norm{PARAMS['batch_norm']}.pth"
+    #     model = load_model(model_path, device)
         
-        # Run evaluation
-        evaluate_model_by_severity(model, val_loader, device, severity=label, save_path=save_path)
+    #     # Run evaluation
+    #     evaluate_model_by_severity(model, val_loader, device, severity=label, save_path=save_path)
         
         
 
