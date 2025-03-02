@@ -29,7 +29,11 @@ def _read_data(data_path, skip_header=True, augment=False, merge_labels=False, h
           data.append(row)
       else:
         data.append(row)
-  data = pd.DataFrame(data, columns=config.data_col_headers)
+  if not has_labels:
+    data_col_headers = config.data_col_headers[:-1]
+  else:
+    data_col_headers = config.data_col_headers
+  data = pd.DataFrame(data, columns=data_col_headers)
   return data[data['text'].notna()]
 
 def read_train_data(merge_labels=False):

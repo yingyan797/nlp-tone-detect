@@ -11,7 +11,7 @@ from utils import read_train_split
 import itertools
 
 class RobertaGCN(nn.Module):
-    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=1, device=torch.device('cuda')):
+    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=1, device=torch.device('cuda'), has_batch_norm=False):
         super(RobertaGCN, self).__init__()
         # Load pre-trained RoBERTa model
         self.roberta = RobertaModel.from_pretrained('roberta-base')
@@ -21,7 +21,7 @@ class RobertaGCN(nn.Module):
             
         # 2 layer Graph convolutional neural network
         self.gcn1 = GCNConv(embed_dim, hidden_dims[0])
-        self.bn1 = nn.BatchNorm1d(hidden_dims[0]) if PARAMS["batch_norm"] else nn.Identity()
+        self.bn1 = nn.BatchNorm1d(hidden_dims[0]) if has_batch_norm else nn.Identity()
         self.gcn2 = GCNConv(hidden_dims[0], hidden_dims[1])
         
         # Classification head
@@ -80,7 +80,7 @@ class TextClassificationDataset(Dataset):
     
     def __getitem__(self, idx):
         text = self.texts[idx]
-        label = self.labels[idx] if self.labels is not None else None
+        label = self.labels[idx]
         
         encoding = self.tokenizer(
             text,
@@ -93,7 +93,7 @@ class TextClassificationDataset(Dataset):
         return {
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': encoding['attention_mask'].squeeze(),
-            'label': torch.tensor(label, dtype=torch.float) if label is not None else None
+            'label': torch.tensor(label, dtype=torch.float)
         }
 
 # Training function
@@ -218,7 +218,7 @@ if __name__ == "__main__":
         val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
 
         # Initialize model
-        model = RobertaGCN(num_classes=1).to(torch.device("cuda"))
+        model = RobertaGCN(num_classes=1, has_batch_norm=PARAMS['batch_norm']).to(torch.device("cuda"))
 
         # Train model
         trained_model = train_model(model, train_loader, val_loader, num_epochs=15)

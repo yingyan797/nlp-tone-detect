@@ -24,7 +24,7 @@ def pred_all(data_loader):
             
             outputs = model(input_ids, attention_mask)
             preds = (outputs > 0.5).float()
-            all_preds.extend(preds.reshape(-1).cpu().numpy())
+            all_preds.extend(preds.reshape(-1).to(dtype=int).cpu().numpy())
     return all_preds
   
 
@@ -51,7 +51,8 @@ print(f"Done predciting dev Acc: {dev_acc:.4f}, Dev F1: {dev_f1:.4f}")
 
 test_data = read_test_data()
 texts_test = test_data['text'].to_list()
-test_dataset = TextClassificationDataset(texts_test, None, tokenizer)
+labels_test = [0] * len(texts_test)
+test_dataset = TextClassificationDataset(texts_test, labels_test, tokenizer)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 test_preds = pred_all(test_loader)
