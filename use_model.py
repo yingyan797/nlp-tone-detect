@@ -44,7 +44,7 @@ dev_loader = DataLoader(dev_dataset, batch_size=batch_size, shuffle=False)
 dev_preds = pred_all(dev_loader)
 dev_acc = accuracy_score(labels_dev, dev_preds)
 dev_f1 = f1_score(labels_dev, dev_preds, average='binary')
-with open("dev.txt", "w") as f:
+with open("predictions/dev.txt", "w") as f:
     for pred in dev_preds:
         f.write(f"{pred}\n")
 print(f"Done predciting dev Acc: {dev_acc:.4f}, Dev F1: {dev_f1:.4f}")
@@ -56,7 +56,7 @@ test_dataset = TextClassificationDataset(texts_test, labels_test, tokenizer)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 test_preds = pred_all(test_loader)
-with open("test.txt", "w") as f:
+with open("predictions/test.txt", "w") as f:
     for pred in test_preds:
         f.write(f"{pred}\n")
 print("Done predicting test")
