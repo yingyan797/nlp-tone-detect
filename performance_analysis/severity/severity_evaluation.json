@@ -1,16 +1,15 @@
 {
-    "Severity": {
     "Severity": 0,
     "accuracy": 0.9706848030018762,
-    "f1_score": 0.0,
-    "precision": 0.0,
-    "recall": 1.0
+    "f1_score": 0.985124360347495,
+    "precision": 1.0,
+    "recall": 0.9706848030018762
 }{
     "Severity": 1,
     "accuracy": 0.8183738120380147,
-    "f1_score": 0.0,
-    "precision": 0.0,
-    "recall": 1.0
+    "f1_score": 0.9001161440185831,
+    "precision": 1.0,
+    "recall": 0.8183738120380147
 }{
     "Severity": 2,
     "accuracy": 0.5694444444444444,

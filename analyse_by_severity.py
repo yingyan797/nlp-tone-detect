@@ -137,10 +137,11 @@ def evaluate_model_by_severity(model, test_loader, device, severity, save_path="
             all_preds.extend(preds.reshape(-1).cpu().numpy())
             all_labels.extend(labels.to(dtype=int).cpu().numpy())
     
+    pos_label = 0 if severity < 2 else 1
     accuracy = accuracy_score(all_labels, all_preds)
-    f1 = f1_score(all_labels, all_preds, average='binary', zero_division=1)
-    precision = precision_score(all_labels, all_preds, average='binary', zero_division=1)
-    recall = recall_score(all_labels, all_preds, average='binary', zero_division=1)
+    f1 = f1_score(all_labels, all_preds, average='binary', zero_division=1, pos_label=pos_label)
+    precision = precision_score(all_labels, all_preds, average='binary', zero_division=1, pos_label=pos_label)
+    recall = recall_score(all_labels, all_preds, average='binary', zero_division=1, pos_label=pos_label)
     
     print(f'Severity: {severity}')
     print(f'Accuracy: {accuracy:.4f}')
@@ -212,6 +213,10 @@ if __name__ == "__main__":
     labels = df["label"].unique()
     print(df["label"].value_counts())
     
+    save_path="./performance_analysis/severity/severity_evaluation.json"
+    with open(save_path, "w") as f:
+        f.write("")
+    
     for label in labels:
         df_category = df[df["label"] == label]
         texts_val = df_category['text'].fillna("").astype(str).to_list()
@@ -228,7 +233,7 @@ if __name__ == "__main__":
         model = load_model(model_path, device)
         
         # Run evaluation
-        evaluate_model_by_severity(model, val_loader, device, severity=label)
+        evaluate_model_by_severity(model, val_loader, device, severity=label, save_path=save_path)
         
         
 
