@@ -4,3 +4,4 @@
 *.out
 **/tests
 .DS_Store
+train_visual/

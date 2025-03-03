@@ -11,7 +11,7 @@ from utils import read_train_split
 import itertools
 
 class RobertaGCN(nn.Module):
-    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=1, device=torch.device('cuda'), has_batch_norm=False):
+    def __init__(self, embed_dim=768, hidden_dims=[256,128], num_classes=5, device=torch.device('cuda'), has_batch_norm=False):
         super(RobertaGCN, self).__init__()
         # Load pre-trained RoBERTa model
         self.roberta = RobertaModel.from_pretrained('roberta-base')
@@ -21,7 +21,8 @@ class RobertaGCN(nn.Module):
             
         # 2 layer Graph convolutional neural network
         self.gcn1 = GCNConv(embed_dim, hidden_dims[0])
-        self.bn1 = nn.BatchNorm1d(hidden_dims[0]) if has_batch_norm else nn.Identity()
+        if has_batch_norm:
+            self.bn1 = nn.BatchNorm1d(hidden_dims[0]) if has_batch_norm else nn.Identity()
         self.gcn2 = GCNConv(hidden_dims[0], hidden_dims[1])
         
         # Classification head
@@ -52,7 +53,8 @@ class RobertaGCN(nn.Module):
             x = self.gcn1(x, edge_index=edge_indices, edge_weight=edge_weights)
             x = F.relu(x)
             x = F.dropout(x, p=0.2, training=self.training)
-            x = self.bn1(x)
+            if hasattr(self, "bn1"):
+                x = self.bn1(x)
             x = self.gcn2(x, edge_index=edge_indices, edge_weight=edge_weights)
             
             # Global pooling
@@ -65,7 +67,7 @@ class RobertaGCN(nn.Module):
         # Classification
         logits = self.classifier(stacked_outputs)
         
-        return F.sigmoid(logits)
+        return logits, stacked_outputs
 
 # Create a simple dataset class
 class TextClassificationDataset(Dataset):
@@ -93,19 +95,48 @@ class TextClassificationDataset(Dataset):
         return {
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': encoding['attention_mask'].squeeze(),
-            'label': torch.tensor(label, dtype=torch.float)
+            'label': torch.tensor(label, dtype=torch.long)
         }
+
+def triplet_loss(embeddings, labels, margin=1.0):
+    """
+    Triplet loss to minimize intra-class distances and maximize inter-class distances
+    """
+    distance_matrix = torch.cdist(embeddings, embeddings)
+    pos_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
+    neg_mask = labels.unsqueeze(0) != labels.unsqueeze(1)
+    
+    # For each anchor, find hardest positive and hardest negative
+    hardest_positive = torch.max(distance_matrix * pos_mask.float(), dim=1)[0]
+    hardest_negative = torch.min(distance_matrix * neg_mask.float() + 
+                               (~neg_mask).float() * 1e6, dim=1)[0]
+    # Compute triplet loss with margin
+    losses = torch.relu(hardest_positive - hardest_negative + margin)
+    return losses.mean()
+
+class CenterLoss(nn.Module):
+    def __init__(self, num_classes, feat_dim):
+        super(CenterLoss, self).__init__()
+        self.centers = nn.Parameter(torch.randn(num_classes, feat_dim))
+        
+    def forward(self, x, labels):
+        batch_size = x.size(0)
+        centers_batch = self.centers[labels]
+        # Calculate distance between features and their centers
+        return torch.sum((x - centers_batch)**2) / batch_size
 
 # Training function
 def train_model(model, train_loader, val_loader, num_epochs=5):
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=PARAMS['lr'])
-    # criterion = nn.CrossEntropyLoss()
-    criterion = nn.BCELoss(reduction='none')
+    criterion = nn.CrossEntropyLoss(reduction='none')
+    # criterion = nn.BCELoss(reduction='none')
+    center_loss = CenterLoss(num_classes=5, feat_dim=128).to(model.device)
     
     best_val_f1 = 0.0
     name = f"{PARAMS['lr']}_{PARAMS['batch_size']}_{PARAMS['loss_weight']}_norm{PARAMS['batch_norm']}"
     with open("training_record.csv", "a") as f:
         f.write(f"Epoch,Train Loss,Val Loss,Acc,F1,{name}\n")
+    weight = torch.tensor([[0.1,0.5,2,1,1] for _ in range(PARAMS['batch_size'])], device=model.device)
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
@@ -113,18 +144,20 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
         for batch in train_loader:
             input_ids = batch['input_ids'].to(model.device)
             attention_mask = batch['attention_mask'].to(model.device)
-            labels = batch['label'].reshape(-1, 1).to(model.device)
+            labels = batch['label'].to(model.device)
             optimizer.zero_grad()
             
-            outputs = model(input_ids, attention_mask)
-            orig_loss = criterion(outputs, labels)
-            weight = torch.ones(labels.shape, device=model.device) + (PARAMS["loss_weight"]-1)*labels
-
-            loss = torch.mean(weight * orig_loss)
+            logits, graph_embeddings = model(input_ids, attention_mask)
+            ce_loss = criterion(logits, labels)
+            _weight = torch.gather(weight, 1, labels.unsqueeze(1)).squeeze(1)
+            ce_loss = torch.mean(_weight * ce_loss)
+            # tp_loss = triplet_loss(graph_embeddings, labels)
+            ct_loss = center_loss(graph_embeddings, labels)
+            loss = 5*ce_loss + 0.2*ct_loss
             loss.backward()
             optimizer.step()
-            
             train_loss += loss.item()
+            print(f"Epoch {epoch} batch losses {loss}={ce_loss}|{ct_loss}")
         
         avg_train_loss = train_loss / len(train_loader)
         
@@ -140,14 +173,15 @@ def train_model(model, train_loader, val_loader, num_epochs=5):
                 attention_mask = batch['attention_mask'].to(model.device)
                 labels = batch['label'].to(model.device)
                 
-                outputs = model(input_ids, attention_mask)
-                loss = torch.mean(criterion(outputs, labels.reshape(-1,1)))
+                logits, graph_embeddings = model(input_ids, attention_mask)
+                loss = torch.mean(criterion(logits, labels))+0.2*center_loss(graph_embeddings,labels)
                 
                 val_loss += loss.item()
                 
-                preds = (outputs >= 0.5).int()
+                _, preds = torch.max(logits, 1)
+                preds = torch.where(preds < 2, 0, 1)
                 all_preds.extend(preds.reshape(-1).cpu().numpy())
-                all_labels.extend(labels.to(dtype=int).cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
         
         # im_size = int(np.sqrt(len(all_preds)))+1
         # res_im = np.zeros((im_size, 2*im_size), dtype=bool)
@@ -209,17 +243,19 @@ if __name__ == "__main__":
     for lr, weight, bn in itertools.product(learning_rates, loss_weights, batch_norm):
         PARAMS = {
             "lr": lr,
-            "batch_size": 256,
+            "batch_size": 512,
             "loss_weight": weight,
             "batch_norm": bn
         }
         # Create data loaders
         train_loader = DataLoader(train_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=PARAMS['batch_size'], shuffle=False)
 
         # Initialize model
-        model = RobertaGCN(num_classes=1, has_batch_norm=PARAMS['batch_norm']).to(torch.device("cuda"))
-
+        model = RobertaGCN(num_classes=5, has_batch_norm=PARAMS['batch_norm']).to(torch.device("cuda"))
+        with open(f"best_model_{lr}_256_{weight}_normFalse.pth", "rb") as f:
+            state_dict = torch.load(f)
+        model.load_state_dict(state_dict)
         # Train model
         trained_model = train_model(model, train_loader, val_loader, num_epochs=15)
 
